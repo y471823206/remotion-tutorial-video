@@ -9,12 +9,12 @@ description: This skill should be used when users want to create professional tu
 
 **所有与用户的交互必须使用中文（简体中文）。**
 
-此 skill 将原始视频素材转换为包含讲解头像、自动字幕和电影级场景过渡的专业教程视频。
+此 skill 将原始视频素材转换为包含讲解头像、自动字幕和动画场景的专业教程视频。
 
 ## 功能说明
 
 生成高质量教程视频，包含：
-- **开场场景** - 主持人介绍（**动态时长**）
+- **开场场景** - 真人开场视频（**动态时长**）
 - **品牌场景** - Logo 动画展示（5秒）
 - **教程场景** - 画中画头像 + 自动字幕（**动态时长**）
 - **订阅场景** - 订阅号召（5秒）
@@ -292,7 +292,7 @@ Logo图片路径（可选，不填则默认）：
 
 从 `assets/components/` 复制并集成以下组件：
 
-1. **OpeningScene.tsx** - 带标题动画的主持人介绍
+1. **OpeningScene.tsx** - 带标题动画的真人开场视频
 2. **ScreenRecording.tsx** - 带画中画头像和字幕的屏幕录制
 3. **VisualHammer.tsx** - Logo 旋转品牌动画
 4. **BilibiliSubscribe.tsx** - 号召行动场景
