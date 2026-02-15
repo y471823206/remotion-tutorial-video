@@ -124,7 +124,9 @@ def check_python_module(module_name: str, import_name: str = None) -> Tuple[bool
             [sys.executable, "-c", f"import {import_name}; print({import_name}.__version__ if hasattr({import_name}, '__version__') else 'installed')"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            encoding='utf-8',
+            errors='ignore'
         )
 
         if result.returncode == 0:
@@ -133,8 +135,12 @@ def check_python_module(module_name: str, import_name: str = None) -> Tuple[bool
         else:
             return False, None
 
-    except Exception:
+    except FileNotFoundError:
         return False, None
+    except subprocess.TimeoutExpired:
+        return False, "timeout"
+    except Exception as e:
+        return False, str(e)
 
 
 def check_node_version() -> Tuple[bool, str, str]:
@@ -163,7 +169,57 @@ def check_node_version() -> Tuple[bool, str, str]:
 
 def check_npm_version() -> Tuple[bool, str]:
     """Check if npm is installed."""
-    return check_command("npm", ["--version"], "npm")
+    # Method 1: Direct command check
+    is_installed, version = check_command("npm", ["--version"], "npm")
+    if is_installed:
+        return True, version
+
+    # Method 2: Check via node (npm is usually installed with node)
+    try:
+        result = subprocess.run(
+            ["node", "-e", "console.log(require('child_process').execSync('npm --version').toString())"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            encoding='utf-8',
+            errors='ignore'
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            if version:
+                return True, version
+    except:
+        pass
+
+    # Method 3: Check common npm paths on Windows
+    if platform.system() == "Windows":
+        try:
+            # Try to find npm in Node.js installation directory
+            result = subprocess.run(
+                ["where", "npm"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                encoding='utf-8',
+                errors='ignore'
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Found npm, get version
+                npm_path = result.stdout.strip().split('\n')[0]
+                result = subprocess.run(
+                    [npm_path, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    encoding='utf-8',
+                    errors='ignore'
+                )
+                if result.returncode == 0:
+                    return True, result.stdout.strip()
+        except:
+            pass
+
+    return False, None
 
 
 def check_ffmpeg_version() -> Tuple[bool, str]:
@@ -173,7 +229,32 @@ def check_ffmpeg_version() -> Tuple[bool, str]:
 
 def check_faster_whisper() -> Tuple[bool, str]:
     """Check if faster-whisper is installed."""
-    return check_python_module("faster-whisper", "faster_whisper")
+    # Try multiple import names
+    for import_name in ["faster_whisper", "whisper"]:
+        is_installed, version = check_python_module("faster-whisper", import_name)
+        if is_installed:
+            return True, version
+
+    # If all fails, try pip list
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "list", "--format=json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            encoding='utf-8',
+            errors='ignore'
+        )
+        if result.returncode == 0:
+            import json
+            packages = json.loads(result.stdout)
+            for pkg in packages:
+                if pkg['name'].lower() in ['faster-whisper', 'faster_whisper']:
+                    return True, pkg.get('version', 'installed')
+    except:
+        pass
+
+    return False, None
 
 
 def check_pydub() -> Tuple[bool, str]:
@@ -216,6 +297,43 @@ def check_remotion_project() -> Tuple[bool, str]:
 
     except Exception as e:
         return False, f"Error reading package.json: {e}"
+
+
+def check_npm_dependencies() -> Tuple[bool, List[Tuple[str, str, str]]]:
+    """
+    Check if required npm dependencies are installed in the current project.
+
+    Returns:
+        Tuple of (all_installed, missing_deps)
+        where missing_deps is list of (package_name, version, purpose)
+    """
+    cwd = Path.cwd()
+    package_json = cwd / "package.json"
+
+    if not package_json.exists():
+        return True, []  # Not in a project, skip check
+
+    try:
+        with open(package_json, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        dependencies = data.get('dependencies', {}) | data.get('devDependencies', {})
+
+        # Required packages for tutorial video skill
+        required_packages = {
+            '@remotion/captions': 'Automatic subtitle generation and display',
+            'framer-motion': 'Animation library for UI components',
+        }
+
+        missing = []
+        for package, purpose in required_packages.items():
+            if package not in dependencies:
+                missing.append((package, 'not found', purpose))
+
+        return len(missing) == 0, missing
+
+    except Exception as e:
+        return True, []  # On error, skip check
 
 
 def check_captions(args: argparse.Namespace) -> None:
@@ -304,7 +422,7 @@ def check_captions(args: argparse.Namespace) -> None:
         print_error(f"Error checking caption file: {e}")
 
 
-def generate_install_guide(failed_checks: List[Tuple[str, str]]):
+def generate_install_guide(failed_checks: List[Tuple[str, str]], missing_npm_deps: List[Tuple[str, str, str]] = None):
     """Generate installation guide for missing dependencies."""
     print_header("Installation Guide")
 
@@ -358,6 +476,14 @@ def generate_install_guide(failed_checks: List[Tuple[str, str]]):
                 BLUE=Colors.BLUE,
                 END=Colors.END
             ))
+
+    # NPM dependencies installation guide
+    if missing_npm_deps and len(missing_npm_deps) > 0:
+        print(f"\n{YELLOW}NPM Packages (Missing from package.json){END}\n")
+        for package, version, purpose in missing_npm_deps:
+            print(f"  {RED}•{END} {package}")
+            print(f"     Purpose: {purpose}")
+            print(f"     Install: {YELLOW}npm install {package}{END}\n")
 
 
 def main():
@@ -480,7 +606,23 @@ This script checks:
         check_captions(args)
     print()
 
-    # 6. Check Remotion project (optional)
+    # 6. Check npm dependencies (if in a project)
+    missing_npm_deps = []
+    if not args.skip_remotion_check:
+        print(f"{Colors.BOLD}Checking npm dependencies...{Colors.END}")
+        all_npm_installed, missing_npm_deps = check_npm_dependencies()
+
+        if all_npm_installed:
+            print_success("All required npm packages are installed")
+        else:
+            print_warning("Some required npm packages are missing")
+            for package, version, purpose in missing_npm_deps:
+                print_error(f"  {package} - {purpose}")
+            all_checks_passed = False
+
+        print()
+
+    # 7. Check Remotion project (optional)
     if not args.skip_remotion_check:
         print(f"{Colors.BOLD}Checking Remotion project...{Colors.END}")
         is_remotion, message = check_remotion_project()
@@ -517,6 +659,11 @@ This script checks:
         generate_install_guide(failed_checks)
 
         print(f"\n{Colors.YELLOW}After installing dependencies, run this script again to verify.{Colors.END}")
+
+        # Show npm deps installation guide if needed
+        if missing_npm_deps:
+            generate_install_guide(failed_checks, missing_npm_deps)
+
         return 1
 
 
