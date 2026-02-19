@@ -5,6 +5,54 @@ description: This skill should be used when users want to create professional tu
 
 # Remotion 教程视频生成器
 
+## ⚠️ 写给 AI 的话
+
+**将此 SKILL.md 视为"执行脚本"而非"参考资料"**
+
+### 执行原则
+- ✅ **严格按阶段顺序执行** - 必须完成当前阶段的所有任务后才能进入下一阶段
+- ✅ **不要跳过交互询问** - 即使用户已提供部分信息，仍需确认所有必要信息
+- ✅ **明确询问，不要假设** - 不要推断用户偏好，必须明确询问
+
+### 代码修改规则（⚠️ 极其重要）
+
+**禁止随意修改模板代码！** 只修改以下位置：
+
+**允许修改的位置：**
+1. `Root.tsx` 中的 `defaultProps` - 仅修改用户提供的值（标题、品牌名等）
+2. `public/assets/` 目录 - 复制/转换用户的素材文件
+
+**禁止修改的位置：**
+1. ❌ 所有组件文件（OpeningScene.tsx, ScreenRecording.tsx 等）- **完全从模板复制，一字不改**
+2. ❌ `calculateMetadata` 函数 - **保持模板原样**
+3. ❌ `staticFile()` 函数调用 - **不要移除或修改**
+4. ❌ 组件的 import 语句和类型定义
+
+**正确做法：**
+- 组件文件：直接从 `assets/templates/` 复制，**一字不改**
+- 配置文件：只修改 defaultProps 中的值（标题、品牌名、文件路径等）
+
+**错误示例：**
+```tsx
+// ❌ 错误：去掉 staticFile()
+<Img src={avatarImage} />
+
+// ❌ 错误：添加默认值逻辑
+<Img src={avatarImage || "assets/avatar.jpg"} />
+
+// ✅ 正确：保持模板原样
+<Img src={staticFile(avatarImage)} />
+```
+
+### 检查点机制
+每个阶段开始前和结束后，确认：
+- [ ] 前一阶段的所有任务已完成
+- [ ] 用户提供了所有必需的信息
+- [ ] 任何偏差都需要明确告知用户并确认
+- [ ] 组件文件完全按模板复制，无任何修改
+
+---
+
 ## ⚠️ 语言要求
 
 **所有与用户的交互必须使用中文（简体中文）。**
@@ -70,25 +118,19 @@ cd <项目名称>
 - "I have a video and want to add subtitles and production value"
 - 转换"八格教程"（8-grid tutorials）为视频
 
-## 工作流程
+## 🔄 工作流程（严格按顺序执行）
 
-**⚠️ 重要：正确的执行顺序！**
-
-**执行顺序：**
-1. **Step 0**: 验证环境
-2. **Step 3**: 选择项目（新建或使用现有）← **必须先执行！**
-   - **如果新建项目**：创建项目后立即生成所有组件文件（OpeningScene.tsx、ScreenRecording.tsx、VisualHammer.tsx、BilibiliSubscribe.tsx、TutorialVideo.tsx）和配置文件，不需要后续再复制
-   - **如果选择现有项目**：验证项目有效性
-3. **Step 1**: 收集信息和素材路径（引导填写，不弹选择框）
-4. **Step 2**: 准备素材
-5. **Step 4**: 集成组件（仅当选择现有项目且缺少组件时生成 tsx 文件）
-6. **Step 5**: 生成字幕（可选）
-7. **Step 6**: 音频标准化（可选）
-8. **Step 7**: 预览和渲染
+**⚠️ 必须按阶段顺序完成每个阶段的所有任务后，才能进入下一阶段。**
 
 ---
 
-### Step 0: 验证环境（关键步骤）
+### 阶段 1: 前置准备
+
+> **目标**: 验证环境并创建项目框架
+> **进入条件**: 无
+> **完成标志**: 项目已创建，所有组件文件已生成
+
+#### 1.1 环境验证
 
 在开始任何教程视频项目之前，**必须验证所有必需的依赖项是否已安装**。
 
@@ -109,16 +151,6 @@ python scripts/check-environment.py
 - 此脚本**只检测**依赖项，**不会自动安装**
 - 如果检测到缺少依赖，脚本会显示详细的安装指南
 - 用户需要**手动安装**缺少的依赖项
-- 对于 Python 包（faster-whisper、pydub），可以使用 `pip install` 命令安装
-- 对于系统工具（Node.js、FFmpeg），需要从官网下载或使用包管理器安装
-
-**如果检测失败**，请参阅 `references/installation-guide.md` 中的安装指南或：
-- **Node.js**: 从 [nodejs.org](https://nodejs.org/) 下载（版本 18+）
-- **FFmpeg**: 通过包管理器安装：
-  - Windows: `choco install ffmpeg`
-  - macOS: `brew install ffmpeg`
-  - Linux: `sudo apt install ffmpeg`
-- **Python 包**: `pip install faster-whisper pydub`
 
 **安装依赖后重新运行检查：**
 ```bash
@@ -127,9 +159,7 @@ python scripts/check-environment.py --verbose
 
 ⚠️ **在所有检查通过之前不要继续！** 缺少依赖会导致后续步骤失败。
 
----
-
-### Step 3: 选择项目方式（必须先执行此步骤！）
+#### 1.2 项目创建方式选择
 
 在开始之前，需要确定是创建新项目还是使用现有项目。
 
@@ -146,7 +176,6 @@ python scripts/check-environment.py --verbose
 2️⃣ 使用现有项目
    - 在现有 Remotion 项目中添加教程视频
    - 需要验证项目结构
-   - 适合已有 Remotion 项目
 
 请输入选项（1 或 2）：
 ```
@@ -159,15 +188,8 @@ python scripts/check-environment.py --verbose
    cd <项目名称>
    ```
 
-   在创建时选择 **"Prompt to Video"** 模板。
-
 2. 检查并安装缺失依赖：
    ```bash
-   # 对比 skill 提供的 package.json
-   npm list framer-motion
-   npm list @remotion/captions
-
-   # 如果缺失，安装它们
    npm install framer-motion @remotion/captions
    ```
 
@@ -189,27 +211,17 @@ python scripts/check-environment.py --verbose
 
 1. 验证项目是否为有效的 Remotion 项目
 2. 检查项目结构
-3. 如果缺少组件，在 Step 4 中生成
+3. 如果缺少组件，在后续阶段中生成
 
----
 
-### Step 1: 收集必需信息
+### 阶段 2: 需求收集（分4次询问）
 
-开始之前，从用户处收集以下信息：
+> **目标**: 收集所有必需的项目信息
+> **进入条件**: 阶段 1 完成
+> **完成标志**: 用户提供了所有信息（或选择使用默认值）
+> **⚠️ 重要**: 必须分4次询问，不要一次性问完
 
-**素材文件路径（用户可以直接提供文件路径或上传文件）：**
-- **真人开场视频**：文件路径（必需）
-- **录制教程视频**：文件路径（必需）
-- **Logo图片**：文件路径（可选）
-- **背景音乐**：文件路径（可选，建议5秒）
-
-**品牌信息（可选）：**
-- **品牌中文名称**：品牌的中文名称（可选，不填则默认显示"久久AI记"）
-- **品牌英文名称**：品牌的英文名称（可选，不填则默认显示"JiuJiu AI Notes"）
-
-**询问用户时的示例问题（必须使用中文，分4次询问，引导填写，不弹选择框）：**
-
-**第1次询问 - 素材文件路径：**
+#### 2.1 第1次询问 - 素材文件路径
 ```
 请提供以下信息：
 
@@ -218,14 +230,14 @@ python scripts/check-environment.py --verbose
 录制教程视频路径（必需）：
 ```
 
-**第2次询问 - 标题信息：**
+#### 2.2 第2次询问 - 标题信息
 ```
 2️⃣ 标题信息
 视频标题（可选）：
 视频副标题（可选）：
 ```
 
-**第3次询问 - 品牌信息：**
+#### 2.3 第3次询问 - 品牌信息
 ```
 3️⃣ 品牌信息
 品牌中文名称（可选，不填则默认"久久AI记"）：
@@ -234,7 +246,7 @@ Logo图片路径（可选，不填则默认）：
 背景音乐路径（可选，建议5秒，不填则默认）：
 ```
 
-**第4次询问 - 字幕生成：**
+#### 2.4 第4次询问 - 字幕生成
 ```
 4️⃣ 字幕生成
 是否需要生成字幕？（1是/0否）：
@@ -255,79 +267,120 @@ Logo图片路径（可选，不填则默认）：
 
 ---
 
-### Step 2: 素材准备
+### 阶段 3: 素材准备
 
-引导用户准备素材：
+> **目标**: 将用户提供的素材复制到项目
+> **进入条件**: 阶段 2 完成（用户提供了素材路径）
+> **完成标志**: 所有素材文件已复制到 public/assets/
+
+#### 3.1 视频格式检测与转换（⚠️ 必须执行）
+
+**浏览器只支持 H.264 编码的 MP4 视频！** 在复制素材前，必须检测并转换视频格式。
+
+**检测视频编码：**
+```bash
+# 检测开场视频编码
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "/path/to/host-video.mp4"
+
+# 检测录屏视频编码
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "/path/to/screen-recording.mp4"
+```
+
+**判断标准：**
+- 如果输出是 `h264` 或 `264` → ✅ 格式正确，直接复制
+- 如果输出是 `hevc`、`h265`、`mpeg4` 或其他 → ❌ 需要转换
+
+**自动转换命令（如需要）：**
+```bash
+# 转换开场视频
+ffmpeg -i "/path/to/original-video.mp4" \
+  -c:v libx264 -preset fast -profile:v baseline -level 3.0 \
+  -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart \
+  public/assets/host-video.mp4 -y
+
+# 转换录屏视频
+ffmpeg -i "/path/to/original-recording.mov" \
+  -c:v libx264 -preset fast -profile:v baseline -level 3.0 \
+  -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart \
+  public/assets/screen-recording.mp4 -y
+```
+
+**转换参数说明：**
+- `-c:v libx264` - 使用 H.264 编码
+- `-profile:v baseline` - 基线配置，最大兼容性
+- `-pix_fmt yuv420p` - 标准像素格式
+- `-movflags +faststart` - 优化网络播放
+- `-preset fast` - 转换速度与质量的平衡
+
+#### 3.2 复制素材文件
+
+**操作步骤：**
 
 1. **真人开场视频** (`host-video.mp4`)
-   - 录制你自己介绍主题的视频（5-10秒）
-   - 确保良好的光线和清晰的声音
-   - 导出为 H.264 MP4 格式
+   - 如果格式正确，直接复制
+   - 如果格式不正确，先转换再复制
    - 推荐分辨率：1080x1920（竖屏）或 1920x1080（横屏）
 
 2. **屏幕录制** (`screen-recording.mp4`)
-   - 录制教程内容
-   - 包含清晰的语音解说
-   - 导出为 H.264 MP4 格式
+   - 支持 `.mov`、`.mp4` 等格式
+   - 如果是 MOV 或其他格式，需要转换为 MP4
    - 推荐分辨率：1920x1080
 
-3. **品牌 Logo** (`jiujiu-logo.jpg` 或 `.png`)
-   - 高质量 logo 图片
-   - 透明 PNG 效果更好
+3. **复制默认资源**（如果用户未提供）
+   - Logo: `skill/assets/example/logo.jpg`
+   - Avatar: `skill/assets/example/avatar.jpg`
+   - Music: `skill/assets/example/music.mp3`
 
-4. **背景音乐** (`music.mp3`，可选)
-   - 纯音乐或环境音乐
-   - 确保与语音解说的音量平衡
-
-5. **项目目录设置**
-   - 创建新的 Remotion 项目或使用现有项目
-   - 创建 `public/assets/` 目录
-   - 将所有准备好的素材复制到 `public/assets/`
+4. **项目目录设置**
+   - 创建 `public/assets/` 目录（如果不存在）
+   - 将所有转换后的视频复制到 `public/assets/`
+   - 将默认资源复制到 `public/assets/`
 
 ---
 
-### Step 4: 组件集成
 
-**仅当选择现有项目且缺少组件时执行此步骤。**
+### 阶段 4: 项目配置
 
-从 `assets/components/` 复制并集成以下组件：
+> **目标**: 配置项目并更新组件
+> **进入条件**: 阶段 3 完成
+> **完成标志**: Root.tsx 配置正确，组件已集成
 
-1. **OpeningScene.tsx** - 带标题动画的真人开场视频
-2. **ScreenRecording.tsx** - 带画中画头像和字幕的屏幕录制
-3. **VisualHammer.tsx** - Logo 旋转品牌动画
-4. **BilibiliSubscribe.tsx** - 号召行动场景
-5. **TutorialVideo.tsx** - 编排所有场景的主组合
+#### 4.1 更新 Root.tsx
 
-更新 `src/Root.tsx` 以注册组合：
+根据用户提供的信息更新 `src/Root.tsx`：
 
 ```tsx
-import { TutorialVideo } from './TutorialVideo';
-
-export const RemotionRoot: React.FC = () => {
-  return (
-    <>
-      <Composition
-        component={TutorialVideo}
-        durationInFrames={75 * 30} // 75秒 @ 30fps
-        fps={30}
-        height={1080}
-        width={1920}
-        id="TutorialVideo"
-        defaultProps={{
-          title: "用户标题",
-          subtitle: "用户副标题",
-          hostVideo: "/assets/host-video.mp4",
-          screenRecording: "/assets/screen-recording.mp4",
-          logo: "/assets/jiujiu-logo.jpg",
-          music: "/assets/music.mp3",
-        }}
-      />
-    </>
-  );
-};
+defaultProps={{
+  title: "用户提供的标题",
+  subtitle: "用户提供的副标题",
+  hostVideoUrl: "/assets/host-video.mp4",
+  screenRecordingUrl: "/assets/screen-recording.mp4",
+  logoImageUrl: "/assets/logo.png",
+  musicUrl: "/assets/music.mp3",
+}}
 ```
 
+#### 4.2 计算视频时长
+
+**总时长计算**：
+- 开场场景 = host-video.mp4 的实际时长（帧数 = 时长秒数 × 30 fps）
+- 品牌场景 = 5 秒（150 帧）
+- 教程场景 = screen-recording.mp4 的实际时长（帧数 = 时长秒数 × 30 fps）
+- 订阅场景 = 5 秒（150 帧）
+
+更新 `durationInFrames` 为总帧数。
+
+#### 4.3 验证组件
+
+确保以下组件存在：
+- OpeningScene.tsx
+- ScreenRecording.tsx
+- VisualHammer.tsx
+- BilibiliSubscribe.tsx
+- TutorialVideo.tsx
+
 ---
+
 
 ### 🎉 自动时长计算
 
@@ -380,74 +433,53 @@ npm run dev
 
 ---
 
-### Step 5: 字幕生成（自动）
+### 阶段 5: 后期处理（可选）
+
+> **目标**: 生成字幕和音频处理
+> **进入条件**: 阶段 4 完成
+> **完成标志**: 字幕文件已生成（如果用户选择生成）
+
+#### 5.1 生成字幕（如果用户选择）
 
 使用提供的脚本从屏幕录制音频生成字幕：
 
 ```bash
-# 在 scripts/ 目录
-python generate-captions.py ../public/assets/screen-recording.mp4 --language zh
-
-# 输出：../public/assets/captions.json
+python scripts/generate-captions.py public/assets/screen-recording.mp4 --language zh
 ```
 
-此脚本使用 faster-whisper 来：
-- 从屏幕录制提取音频
-- 生成准确的时间戳
-- 创建带开始/结束时间的字幕片段
-- 将繁体中文转换为简体中文（--language zh 时自动转换）
-- 输出与 ScreenRecording 组件兼容的 JSON 格式
+输出：`public/assets/captions.json`
 
-**语言支持：**
-- `--language zh`：中文，繁体→简体转换（推荐）
-- `--language zh-CN`：仅简体中文
-- `--language zh-TW`：仅繁体中文
-- `--language auto`：自动检测（可能输出繁体中文）
-- `--no-convert`：禁用繁体→简体转换
-
-**前置条件：**
-```bash
-# 安装 faster-whisper 用于语音识别
-pip install faster-whisper
-
-# 安装 OpenCC 用于中文转换（可选但推荐）
-pip install opencc-python-reimplemented
-```
-
-**注意：** 如果脚本失败，确保 faster-whisper 已安装：
-```bash
-pip install faster-whisper
-```
-
----
-
-### Step 6: 音频标准化（可选）
+#### 5.2 音频标准化（可选）
 
 标准化音频电平以获得一致的音量：
 
 ```bash
-# 在 scripts/ 目录
-python normalize-audio.py ../public/assets/screen-recording.mp4
-
-# 创建音频的标准化版本
+python scripts/normalize-audio.py public/assets/screen-recording.mp4
 ```
 
 ---
 
-### Step 7: 预览和渲染
+### 阶段 6: 预览渲染
+
+> **目标**: 启动预览服务器并指导用户渲染
+> **进入条件**: 阶段 5 完成（或跳过）
+> **完成标志**: 服务器运行中，用户可以在浏览器中预览
+
+#### 6.1 启动预览
 
 **在浏览器中预览：**
 ```bash
-npm run dev
+npm start
 ```
 
-然后导航到 `http://localhost:3002` 并：
+然后导航到 `http://localhost:3001` 并：
 - 选择 "TutorialVideo" 组合
 - 预览所有场景
 - 验证时长、字幕和过渡
 - 如需要调整默认 props
 
-**渲染视频：**
+#### 6.2 渲染视频
+
 ```bash
 # 渲染到默认输出
 npx remotion render TutorialVideo out/tutorial-video.mp4
@@ -455,14 +487,7 @@ npx remotion render TutorialVideo out/tutorial-video.mp4
 # 或使用 Remotion Studio UI 以自定义设置渲染
 ```
 
-**替代方案：批量渲染**
-```bash
-npm run render -- --host assets/host-video.mp4 --screen assets/screen-recording.mp4
-```
-
----
-
-### Step 8: 质量检查
+#### 6.3 质量检查
 
 渲染后，验证：
 - 视频打开并流畅播放
